@@ -1,0 +1,35 @@
+{
+    "webhook_url": "",
+    "model_path": "model/model.pth",
+    "data_path": "data/tiny_sheakespeare.txt",
+    "dataset_loading_size": 1000000,
+    "tokenizer":{
+        "vocab_size": 10000,
+        "path": "model/tokenizer.json",
+        "special_tokens": {
+            "pad_token": "<PAD>",
+            "unk_token": "<UNK>",
+            "bos_token": "<BOS>",
+            "eos_token": "<EOS>"
+        }
+    },
+    "embedding":{
+        "vector_dim": 256,
+        "main_model_path": "model/embedding_model.pth",
+        "json_table_path": "model/embedding_table.json",
+        "dnn":{
+            "input_size": 10000,
+            "num_epochs": 10,
+            "batch_size": 32,
+            "learning_rate": 0.001
+        }
+    },
+    "dnn":{
+        "model_path": "model/model.pth",
+        "input_size": 196608,
+        "num_epochs": 100,
+        "batch_size": 32,
+        "learning_rate": 0.001
+    },
+    "version": "1.0.0"
+}
