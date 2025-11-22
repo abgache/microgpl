@@ -24,7 +24,9 @@ del config
 # Args
 train = "--train" in argv or "-t" in argv
 predict = "--predict" in argv
-chat - = "--chat" in argv
+chat = "--chat" in argv
+tokenizer_test = "--tokenizer-test" in argv
+embedding_test = "--embedding-test" in argv
 force_cpu = "--cpu" in sys.argv
 force_cuda = "--cuda" in sys.argv
 
