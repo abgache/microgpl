@@ -57,9 +57,10 @@ class tokenizer(): # Simply Byte-Pair Encoding tokenizer
             return False
 
 class embedding():
-    def __init__(self, logger, tokenizer, embedding_config):
+    def __init__(self, logger, device, tokenizer, embedding_config):
         self.logger = logger
         self.full_model = None
+        self.device = device
         self.embedding_table = {}
         self.tokenizer = tokenizer
         embedding_config = json.load(embedding_config)
@@ -98,19 +99,122 @@ class embedding():
         self.full_model = nn.Sequential(
             nn.Linear(self.tokenizer.vocab_size, int(self.vector_dim)),             # Hidden Layer 1
             nn.Linear(int(self.vector_dim), int(self.vector_dim)*4),               # Hidden Layer 2
-            nn.Sigmoid(),
-            nn.Linear(int(self.vector_dim)*4, self.tokenizer.vocab_size, dim=-1),                  # Output Layer
-            nn.Softmax()
+            nn.Sigmoid(dim=1),
+            nn.Linear(int(self.vector_dim)*4, self.tokenizer.vocab_size),                  # Output Layer
+            nn.Softmax(dim=1)
         )
-        self.logger.log("Embedding model created based on DNN configuration.", v=True, Wh=True, mention=False)
+        self.logger.log(f"Embedding model created based on DNN configuration. The embedding model has {int(self.full_model.parameters())} parameters.", v=True, Wh=True, mention=False)
 
     def train_embedding_model(self, dataset):
+        if not self.tokenizer.vocab_status():
+            self.logger.log("Tokenizer vocabulary not found. Cannot create embedding table.", v=False, Wh=True, mention=True)
+            raise ValueError(f"{tlm()} Tokenizer vocabulary not found. Cannot create embedding table.")
         # Placeholder for training the embedding model
         # format dataset into input-output pairs for training
-        pass
+        if isinstance(dataset, str):
+            tokenized_data = self.tokenizer.tokenize(dataset)
+        else:
+            tokenized_data = [self.tokenizer.tokenize(data) for data in dataset]
+        del dataset
+
+        # Create input/output data
+        # E.g. : "I love programming in Python using PyTorch" → [I, love, programming, in, Python, using, PyTorch]
+        # For the input "Python", 4examples : "programming", "in", "using", "PyTorch" => The two tokens before and after the target token (For 1st token, just add a <UNK> token and for the last token a <EOS> token)
+        input_data = []  # One-hot encoded vectors of target tokens
+        output_data = [] # One-hot encoded vectors of context tokens
+
+        for token in tokenized_data:
+            for i in range(len(token)):
+                target_token_id = token[i]
+                context_token_ids = []
+                if i - 2 >= 0:
+                    context_token_ids.append(token[i - 2])
+                else:
+                    context_token_ids.append(self.tokenizer.tokens.get("<unk>"))
+                if i - 1 >= 0:
+                    context_token_ids.append(token[i - 1])
+                else:
+                    context_token_ids.append(self.tokenizer.tokens.get("<unk>"))
+                if i + 1 < len(token):
+                    context_token_ids.append(token[i + 1])
+                else:
+                    context_token_ids.append(self.tokenizer.tokens.get("<eos>"))
+                if i + 2 < len(token):
+                    context_token_ids.append(token[i + 2])
+                else:
+                    context_token_ids.append(self.tokenizer.tokens.get("<eos>"))
+                
+                input_data.append(target_token_id)
+                output_data.extend(context_token_ids)
+
+        if not len(input_data) == len(output_data):
+            self.logger.log("Input and output data lengths do not match. Cannot train embedding model.", v=False, Wh=True, mention=True)
+            raise ValueError(f"{tlm()} Input and output data lengths do not match. Cannot train embedding model.")
+        del tokenized_data
+
+        # Create One-Hot Encoded vectors for each token
+        input_oh_data = []
+        for token_ids in input_data:
+            one_hot = [0] * self.tokenizer.vocab_size
+            one_hot[token_ids] = 1
+            input_oh_data.append(one_hot)
+        
+        output_oh_data = []
+        for token_ids in output_data:
+            one_hot = [0] * self.tokenizer.vocab_size
+            one_hot[token_ids] = 1
+            output_oh_data.append(one_hot)
+
+        # torch.tensor
+        input_tensor = torch.tensor(input_oh_data, dtype=torch.float32).to(self.device)
+        output_tensor = torch.tensor(output_oh_data, dtype=torch.float32).to(self.device)
+        del input_oh_data
+        del output_oh_data
+        del one_hot
 
         # Train the model
-        pass
+        self.num_epochs = self.dnn_config.get("num_epochs", 10)
+        self.num_batches = self.dnn_config.get("batch_size", 32)
+        self.learning_rate = self.dnn_config.get("learning_rate", 0.001)
+        self.criterion = torch.nn.MSELoss() # Mean Squared Error Loss for regression
+        self.optimizer = torch.optim.Adam(self.full_model.parameters(), lr=self.learning_rate) 
+
+        self.full_model.to(self.device)
+
+        self.full_model.train()
+
+        for epoch in range(self.num_epochs):
+            total_loss = 0.0
+
+            for i in range(num_batches):
+                start = i * batch_size
+                end = start + batch_size
+
+                batch_x = input_oh_data[start:end]
+                batch_y = output_oh_data[start:end]
+
+                # Reset gradients
+                self.optimizer.zero_grad()
+
+                # Forward
+                outputs = self.full_model(batch_x)
+
+                # Loss
+                loss = self.criterion(outputs, batch_y)
+
+                # Backprop
+                loss.backward()
+                self.optimizer.step()
+
+                total_loss += loss.item()
+
+            avg_loss = total_loss / max(1, num_batches)
+            self.logger.log(
+                f"Epoch [{epoch+1}/{self.num_epochs}] - Loss: {avg_loss:.4f}",
+                v=True, Wh=True, mention=False
+            )
+
+        self.logger.log("Training completed successfully.", v=True, Wh=True, mention=False)
 
         # seperate the main model into the w2v model
         pass
