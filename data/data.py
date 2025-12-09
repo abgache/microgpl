@@ -9,7 +9,7 @@ class data():
     
     def load_data(self):
         try:
-            with open(self.data_path, "r", encoding="latin-1") as f:
+            with open(self.data_path, "r", encoding="utf-8") as f:
                 self.data = f.read(self.dataset_loading_size)
             self.logger.log(f"Data loaded successfully from {self.data_path}.", v=True, Wh=True, mention=False)
         except Exception as e:

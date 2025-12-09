@@ -35,7 +35,7 @@ if __name__ == "__main__":
     logger = logger(discord_webhook=webhook_url) # créer le logger
 
     # Logging system info
-    logger.log(f"Lookmaxx.ai V{version}.", v=True, Wh=True, mention=False)
+    logger.log(f"Micro Generative Pre-trained Transformer test arch - V{version}.", v=True, Wh=True, mention=False)
     logger.log(f"To change any setting, go check config.json.", v=True, Wh=True, mention=False)
     logger.log(f"PyTorch version: {torch.__version__}", v=True, Wh=True, mention=False)
     logger.log(f"CUDA status : {str(torch.cuda.is_available())}", v=True, Wh=True, mention=False)
@@ -86,7 +86,15 @@ if __name__ == "__main__":
             tk.load_vocab()
 
         # Initialize embedding
-        
+        embed = embedding(logger, device, tk, embedding_config)
+        if embed.check_saved_embedding_table():
+            logger.log("Existing embedding table found. Loading embedding table...", v=True, Wh=True, mention=False)
+            embed.load_embedding_table()
+        else:
+            logger.log("No existing embedding table found. Creating new embedding table...", v=True, Wh=True, mention=False)
+            embed.create_embedding_table()
+            embed.save_embedding_table()
+
         del dataset # Free memory
 
     if tokenizer_test:

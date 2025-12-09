@@ -74,9 +74,17 @@ class embedding():
         self.logger.log("Embedding module initialized.", v=True, Wh=True, mention=False)
         # il faut pas save le model de base, on save juste une db des vecteurs {"token": index}
     
+    def check_saved_embedding_table(self):
+        try:
+            with open(self.json_table_path, "r", encoding="utf-8") as f:
+                data = f.read()
+                return len(data) > 0
+        except:
+            return False
+
     def load_embedding_table(self):
         try:
-            with open(self.json_table_path, "r", encoding="latin-1") as f:
+            with open(self.json_table_path, "r", encoding="utf-8") as f:
                 self.embedding_table = json.load(f)
             self.logger.log(f"Embedding table loaded from {self.json_table_path}.", v=True, Wh=True, mention=False)
             return embedding_table
@@ -86,7 +94,7 @@ class embedding():
     
     def save_embedding_table(self, embedding_table):
         try:
-            with open(self.json_table_path, "w", encoding="latin-1") as f:
+            with open(self.json_table_path, "w", encoding="utf-8") as f:
                 json.dump(self.embedding_table, f, ensure_ascii=False, indent=4)
             self.logger.log(f"Embedding table saved to {self.json_table_path}.", v=True, Wh=True, mention=False)
         except Exception as e:
@@ -235,6 +243,21 @@ class model():
         self.tokenizer = self.embedding.tokenizer
         self.context_window = context_window
         self.attention_matrix = None # Single attention head
-
+    
+    def positional_encoding(self, position, d_model=self.embedding.vector_dim): # Avoir le vecteur de position qu'on vas après additionner au vecteur du mot
+        pe = torch.zeros(position, d_model)
+        for pos in range(position):
+            for i in range(0, d_model, 2):
+                pe[pos, i] = torch.sin(pos / (10000 ** ((2 * i)/d_model)))
+                if i + 1 < d_model:
+                    pe[pos, i + 1] = torch.cos(pos / (10000 ** ((2 * (i + 1))/d_model)))
+        return pe
+    
+    def encode_vector_position(self, input_vectors: list): # Encode la position des vecteurs d'une liste de vecteurs
+        pe_vectors = []
+        for pos in range(len(input_vectors)):
+            pe = self.positional_encoding(pos)
+            pe_vectors.append(input_vectors[pos] + pe)
+        return pe_vectors # vrm pas un code de tigre
 
     def create_attention_matrix(self):
