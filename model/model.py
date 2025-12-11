@@ -261,3 +261,27 @@ class model():
         return pe_vectors # vrm pas un code de tigre
 
     def create_attention_matrix(self):
+
+
+class FNN():
+    def __init__(self, logger, embedding, ffn_config):
+        self.logger = logger
+        self.embedding = embedding
+        ffn_config = json.load(ffn_config)
+        self.model_path = ffn_config.get("model_path", "model/ffn.pth")
+        self.input_size = ffn_config.get("input_size", 256)
+        self.num_epochs = ffn_config.get("num_epochs", 25)
+        self.batch_size = ffn_config.get("batch_size", 32)
+        self.learning_rate = ffn_config.get("learning_rate", 0.001)
+        self.model = nn.Sequential(
+            nn.Linear(self.embedding.vector_dim, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, self.embedding.tokenizer.vocab_size),
+            nn.Softmax(dim=1)
+        )
+        self.logger.log("Feedforward Neural Network initialized.", v=True, Wh=True, mention=False)
+    
+    def train_ffn(self, x, y):
+        pass

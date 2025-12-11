@@ -27,6 +27,7 @@ predict = "--predict" in argv
 chat = "--chat" in argv
 tokenizer_test = "--tokenizer-test" in argv
 embedding_test = "--embedding-test" in argv
+verbose = "--verbose" in argv or "-v" in argv # detailed logs + print more model and generation infos like attention matrixs
 force_cpu = "--cpu" in sys.argv
 force_cuda = "--cuda" in sys.argv
 
@@ -98,10 +99,65 @@ if __name__ == "__main__":
         del dataset # Free memory
 
     if tokenizer_test:
-        pass
+        if tk is None:
+            tk = tokenizer(logger, tokenizer_config)
+            if not tk.vocab_status():
+                logger.log("No existing tokenizer found. Creating new vocabulary...", v=True, Wh=True, mention=False)
+                sample_data = "This is a sample dataset for tokenizer testing."
+                tk.create_vocab(sample_data)
+                tk.save_vocab()
+            else:
+                logger.log("Existing tokenizer found. Loading vocabulary...", v=True, Wh=True, mention=False)
+                tk.load_vocab()
+
+        sentence = "" # init
+        while sentence != "exit":
+            sentence = input("Enter a sentence to tokenize (type 'exit' to quit): ")
+            if sentence == "exit":
+                break
+            token_ids = tk.encode(sentence)
+            print(f"Token IDs: {token_ids}")
+            decoded_sentence = tk.decode(token_ids)
+            print(f"Decoded Sentence: {decoded_sentence}")
     
     if embedding_test:
-        pass
+        if tk is None:
+            tk = tokenizer(logger, tokenizer_config)
+            if not tk.vocab_status():
+                logger.log("No existing tokenizer found. Creating new vocabulary...", v=True, Wh=True, mention=False)
+                sample_data = "This is a sample dataset for tokenizer testing."
+                tk.create_vocab(sample_data)
+                tk.save_vocab()
+            else:
+                logger.log("Existing tokenizer found. Loading vocabulary...", v=True, Wh=True, mention=False)
+                tk.load_vocab()
+        
+        embed = embedding(logger, device, tk, embedding_config)
+        if embed.check_saved_embedding_table():
+            logger.log("Existing embedding table found. Loading embedding table...", v=True, Wh=True, mention=False)
+            embed.load_embedding_table()
+        else:
+            logger.log("No existing embedding table found. Creating new embedding table...", v=True, Wh=True, mention=False)
+            embed.create_embedding_table()
+            embed.save_embedding_table()
+        
+        w1 = ""
+        w2 = ""
+        while w1 != "exit":
+            w1 = input("Enter the first word (type 'exit' to quit): ")
+            if w1 == "exit":
+                break
+            w2 = input("Enter the second word (type 'exit' to quit): ")
+            op = input("Enter the operation (+ or -): ")
+            if op not in ["+", "-"]:
+                print("Invalid operation. Please enter + or -.")
+                continue
+            else:
+                if op == "+":
+                    #
+                else:
+                    #
+
 
     if predict:
         pass

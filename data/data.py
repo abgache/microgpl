@@ -17,3 +17,8 @@ class data():
             raise ValueError(f"{tlm()} Error loading data from {self.data_path}: {e}")
         
         return self.data
+    
+    def ffn_data(self, tokenizer, num_examples=100000):
+        x = [1, 3] # Test data
+        y = [2, 4] # Token ids
+        return (x, y)
