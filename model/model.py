@@ -5,7 +5,7 @@ import json
 class tokenizer(): # Simply Byte-Pair Encoding tokenizer
     def __init__(self, logger, tokenizer_config):
         self.logger = logger
-        tokenizer_config = json.load(tokenizer_config)
+        tokenizer_config = tokenizer_config
         self.vocab_size = tokenizer_config.get("vocab_size", 10000)
         self.path = tokenizer_config.get("path", "model/tokenizer.json")
         self.special_tokens = tokenizer_config.get("special_tokens", {})
@@ -63,7 +63,7 @@ class embedding():
         self.device = device
         self.embedding_table = []
         self.tokenizer = tokenizer
-        embedding_config = json.load(embedding_config)
+        embedding_config = embedding_config
         self.vector_dim = embedding_config.get("vector_dim", 128)
         self.main_model_path = embedding_config.get("main_model_path", "model/embedding_model.pth")
         self.json_table_path = embedding_config.get("json_table_path", "model/embedding_table.json")
@@ -92,7 +92,7 @@ class embedding():
             self.logger.log(f"Error loading embedding table from {self.json_table_path}: {e}", v=False, Wh=True, mention=True)
             raise ValueError(f"{tlm()} Error loading embedding table from {self.json_table_path}: {e}")
     
-    def save_embedding_table(self, embedding_table):
+    def save_embedding_table(self):
         try:
             with open(self.json_table_path, "w", encoding="utf-8") as f:
                 json.dump(self.embedding_table, f, ensure_ascii=False, indent=4)
@@ -107,11 +107,11 @@ class embedding():
         self.full_model = nn.Sequential(
             nn.Linear(self.tokenizer.vocab_size, int(self.vector_dim)),             # Hidden Layer 1
             nn.Linear(int(self.vector_dim), int(self.vector_dim)*4),               # Hidden Layer 2
-            nn.Sigmoid(dim=1),
+            nn.Sigmoid(),
             nn.Linear(int(self.vector_dim)*4, self.tokenizer.vocab_size),                  # Output Layer
             nn.Softmax(dim=1)
         )
-        self.logger.log(f"Embedding model created based on DNN configuration. The embedding model has {int(self.full_model.parameters())} parameters.", v=True, Wh=True, mention=False)
+        self.logger.log(f"Embedding model created based on DNN configuration. The embedding model has {str(self.full_model.parameters())} parameters.", v=True, Wh=True, mention=False)
 
     def train_embedding_model(self, dataset):
         if not self.tokenizer.vocab_status():
@@ -181,7 +181,7 @@ class embedding():
         del one_hot
 
         # Train the model
-        self.dnn_config = json.load(self.dnn_config)
+        self.dnn_config = self.dnn_config
         self.num_epochs = self.dnn_config.get("num_epochs", 10)
         self.num_batches = self.dnn_config.get("batch_size", 32)
         self.learning_rate = self.dnn_config.get("learning_rate", 0.001)
@@ -270,12 +270,12 @@ class FNN():
     def __init__(self, logger, embedding, ffn_config):
         self.logger = logger
         self.embedding = embedding
-        ffn_config = json.load(ffn_config)
-        self.model_path = ffn_config.get("model_path", "model/ffn.pth")
-        self.input_size = ffn_config.get("input_size", 256)
-        self.num_epochs = ffn_config.get("num_epochs", 25)
-        self.batch_size = ffn_config.get("batch_size", 32)
-        self.learning_rate = ffn_config.get("learning_rate", 0.001)
+        self.ffn_config = ffn_config
+        self.model_path = self.ffn_config.get("model_path", "model/ffn.pth")
+        self.input_size = self.ffn_config.get("input_size", 256)
+        self.num_epochs = self.ffn_config.get("num_epochs", 25)
+        self.batch_size = self.ffn_config.get("batch_size", 32)
+        self.learning_rate = self.ffn_config.get("learning_rate", 0.001)
         self.model = nn.Sequential(
             nn.Linear(self.embedding.vector_dim, 2048),
             nn.ReLU(),

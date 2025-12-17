@@ -93,7 +93,7 @@ if __name__ == "__main__":
             embed.load_embedding_table()
         else:
             logger.log("No existing embedding table found. Creating new embedding table...", v=True, Wh=True, mention=False)
-            embed.create_embedding_table()
+            embed.create_embedding_model()
             embed.save_embedding_table()
 
         del dataset # Free memory
