@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import json
+from scripts.time_log import time_log_module as tlm
 
-class tokenizer(): # Simply Byte-Pair Encoding tokenizer
+class tokenizer(): # Fully functional
     def __init__(self, logger, tokenizer_config):
         self.logger = logger
         tokenizer_config = tokenizer_config
@@ -25,7 +26,7 @@ class tokenizer(): # Simply Byte-Pair Encoding tokenizer
     
     def create_vocab(self, dataset):
         unique_tokens = set(dataset.split())
-        self.tokens = {token: idx for idx, token in enumerate(unique_tokens)}
+        self.tokens = {token: idx+len(self.special_tokens)+1 for idx, token in enumerate(unique_tokens)}
         for special_token, index in self.special_tokens.items():
             self.tokens[special_token] = index
         self.logger.log(f"Vocabulary created with {len(self.tokens)} tokens.", v=True, Wh=True, mention=False)
@@ -52,7 +53,7 @@ class tokenizer(): # Simply Byte-Pair Encoding tokenizer
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 data = f.read()
-                return len(data) > 0
+                return not (data == None or data == "{}")
         except:
             return False
 
@@ -87,7 +88,7 @@ class embedding():
             with open(self.json_table_path, "r", encoding="utf-8") as f:
                 self.embedding_table = json.load(f)
             self.logger.log(f"Embedding table loaded from {self.json_table_path}.", v=True, Wh=True, mention=False)
-            return embedding_table
+            return self.embedding_table
         except Exception as e:
             self.logger.log(f"Error loading embedding table from {self.json_table_path}: {e}", v=False, Wh=True, mention=True)
             raise ValueError(f"{tlm()} Error loading embedding table from {self.json_table_path}: {e}")

@@ -27,6 +27,8 @@ predict = "--predict" in argv
 chat = "--chat" in argv
 tokenizer_test = "--tokenizer-test" in argv
 embedding_test = "--embedding-test" in argv
+new_tokenizer = "--new-tokenizer" in argv
+new_embedding = "--new-embedding" in argv
 verbose = "--verbose" in argv or "-v" in argv # detailed logs + print more model and generation infos like attention matrixs
 force_cpu = "--cpu" in argv
 force_cuda = "--cuda" in argv
@@ -94,6 +96,7 @@ if __name__ == "__main__":
         else:
             logger.log("No existing embedding table found. Creating new embedding table...", v=True, Wh=True, mention=False)
             embed.create_embedding_model()
+            embed.train_embedding_model(dataset)
             embed.save_embedding_table()
 
         del dataset # Free memory

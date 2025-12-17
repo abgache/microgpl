@@ -7,10 +7,10 @@
         "vocab_size": 10000,
         "path": "model/tokenizer.json",
         "special_tokens": {
-            "pad_token": "<PAD>",
-            "unk_token": "<UNK>",
-            "bos_token": "<BOS>",
-            "eos_token": "<EOS>"
+            "<PAD>": 1,
+            "<UNK>": 2,
+            "<BOS>": 3,
+            "<EOS>": 4
         }
     },
     "embedding":{
