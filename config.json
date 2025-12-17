@@ -4,7 +4,7 @@
     "data_path": "data/tiny_sheakespeare.txt",
     "dataset_loading_size": 1000000,
     "tokenizer":{
-        "vocab_size": 10000,
+        "vocab_size": 30000,
         "path": "model/tokenizer.json",
         "special_tokens": {
             "<PAD>": 1,

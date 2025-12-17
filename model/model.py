@@ -132,38 +132,27 @@ class embedding():
         input_data = []  # One-hot encoded vectors of target tokens
         output_data = [] # One-hot encoded vectors of context tokens
 
-        for token in tokenized_data:
-            for i in range(len(token)):
-                target_token_id = token[i]
-                context_token_ids = []
-                if i - 2 >= 0:
-                    context_token_ids.append(token[i - 2])
-                else:
-                    context_token_ids.append(self.tokenizer.tokens.get("<unk>"))
-                if i - 1 >= 0:
-                    context_token_ids.append(token[i - 1])
-                else:
-                    context_token_ids.append(self.tokenizer.tokens.get("<unk>"))
-                if i + 1 < len(token):
-                    context_token_ids.append(token[i + 1])
-                else:
-                    context_token_ids.append(self.tokenizer.tokens.get("<eos>"))
-                if i + 2 < len(token):
-                    context_token_ids.append(token[i + 2])
-                else:
-                    context_token_ids.append(self.tokenizer.tokens.get("<eos>"))
-                
-                input_data.append(target_token_id)
-                output_data.extend(context_token_ids)
+        
+        for idx, target_token_id in enumerate(tokenized_data):
+            # Context tokens
+            context_token_ids = [
+                tokenized_data[idx - 2] if idx - 2 >= 0 else self.tokenizer.tokens.get("<unk>"),
+                tokenized_data[idx - 1] if idx - 1 >= 0 else self.tokenizer.tokens.get("<unk>"),
+                tokenized_data[idx + 1] if idx + 1 < len(tokenized_data) else self.tokenizer.tokens.get("<eos>"),
+                tokenized_data[idx + 2] if idx + 2 < len(tokenized_data) else self.tokenizer.tokens.get("<eos>")
+            ]
+            input_data.extend([target_token_id] * 4)
+            output_data.extend(context_token_ids)
 
         if not len(input_data) == len(output_data):
-            self.logger.log("Input and output data lengths do not match. Cannot train embedding model.", v=False, Wh=True, mention=True)
-            raise ValueError(f"{tlm()} Input and output data lengths do not match. Cannot train embedding model.")
+            self.logger.log(f"Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}", v=False, Wh=True, mention=True)
+            raise ValueError(f"{tlm()} Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}")
         del tokenized_data
 
         # Create One-Hot Encoded vectors for each token
         input_oh_data = []
         for token_ids in input_data:
+            print(f"{str(self.tokenizer.vocab_size)}  vs {str(token_ids)}")
             one_hot = [0] * self.tokenizer.vocab_size
             one_hot[token_ids] = 1
             input_oh_data.append(one_hot)
