@@ -4,7 +4,7 @@
     "data_path": "data/tiny_sheakespeare.txt",
     "dataset_loading_size": 1000000,
     "tokenizer":{
-        "vocab_size": 30000,
+        "vocab_size": 10000,
         "path": "model/tokenizer.json",
         "special_tokens": {
             "<PAD>": 1,
@@ -18,7 +18,7 @@
         "main_model_path": "model/embedding_model.pth",
         "json_table_path": "model/embedding_table.json",
         "dnn":{
-            "input_size": 30000,
+            "input_size": 10000,
             "num_epochs": 10,
             "batch_size": 32,
             "learning_rate": 0.001

@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 import json
+from collections import Counter
 from scripts.time_log import time_log_module as tlm
+from scripts.byte_pair_encoder import data2tokens
 
 class tokenizer(): # Fully functional
     def __init__(self, logger, tokenizer_config):
@@ -14,9 +16,25 @@ class tokenizer(): # Fully functional
         self.logger.log(f"Tokenizer initialized with vocab size {self.vocab_size}.", v=True, Wh=True, mention=False)
     
     def tokenize(self, text):
-        tokens = text.split() # Simple whitespace tokenizer
-        token_ids = [self.tokens.get(token, self.tokens.get("<unk>")) for token in tokens]
-        return token_ids
+        # Tokens format: self.tokens = {} # e.g. {"token": index}
+        tokens = []
+        i = 0
+        # Trie les tokens du vocab du plus long au plus court pour BPE greedy
+        vocab_tokens = sorted(self.tokens.keys(), key=len, reverse=True)
+
+        while i < len(text):
+            match = None
+            for token in vocab_tokens:
+                if text.startswith(token, i):
+                    match = token
+                    break
+            if match:
+                tokens.append(self.tokens[match])
+                i += len(match)
+            else:
+                tokens.append(self.tokens.get("<unk>", 0))
+                i += 1
+        return tokens
     
     def detokenize(self, token_ids):
         id_to_token = {index: token for token, index in self.tokens.items()}
@@ -25,7 +43,7 @@ class tokenizer(): # Fully functional
         return text
     
     def create_vocab(self, dataset):
-        unique_tokens = set(dataset.split())
+        unique_tokens = data2tokens(dataset, vocab_size=((int(self.vocab_size))-4)) # Way less optimized than the old data.split but WAY more effective for MGPT
         self.tokens = {token: idx+len(self.special_tokens)+1 for idx, token in enumerate(unique_tokens)}
         for special_token, index in self.special_tokens.items():
             self.tokens[special_token] = index
