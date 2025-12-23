@@ -15,6 +15,7 @@ with open("config.json", "r") as f:
 webhook_url = config.get("webhook_url", "") # leave empty to disable webhook logging
 model_path = config.get("model_path", "model/model.pth")
 data_path = config.get("data_path", "data/tiny_sheakespeare.txt") # Tiny Shakespeare Dataset by default
+json_data_path = config.get("json_data_path", "data/dataset.json")
 version = config.get("version", "None")
 dataset_loading_size = config.get("dataset_loading_size", 10000)
 tokenizer_config = config.get("tokenizer", {})
@@ -97,7 +98,7 @@ if __name__ == "__main__":
             logger.log("No existing embedding table found. Creating new embedding table...", v=True, Wh=True, mention=False)
             embed.create_embedding_model()
             try:
-                embed.train_embedding_model(dataset)
+                embed.train_embedding_model(dataset, json_data_path)
                 embed.save_embedding_table()
             except MemoryError:
                 logger.log("Error during embedding model training: Out of memory. Please try to make your dataset smaller or use a smaller model.", v=False, Wh=True, mention=True) # Getting memory error on TinySheakespeare with 16gb RAM - Crazy bad optimization but im too lazy

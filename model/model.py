@@ -132,7 +132,7 @@ class embedding():
         )
         self.logger.log(f"Embedding model created based on DNN configuration. The embedding model has {str(sum(p.numel() for p in self.full_model.parameters()))} parameters.", v=True, Wh=True, mention=False)
 
-    def train_embedding_model(self, dataset):
+    def train_embedding_model(self, dataset, json_data_path):
         if not self.tokenizer.vocab_status():
             self.logger.log("Tokenizer vocabulary not found. Cannot create embedding table.", v=False, Wh=True, mention=True)
             raise ValueError(f"{tlm()} Tokenizer vocabulary not found. Cannot create embedding table.")
@@ -154,10 +154,10 @@ class embedding():
         for idx, target_token_id in enumerate(tokenized_data):
             # Context tokens
             context_token_ids = [
-                tokenized_data[idx - 2] if idx - 2 >= 0 else self.tokenizer.tokens.get("<unk>"),
-                tokenized_data[idx - 1] if idx - 1 >= 0 else self.tokenizer.tokens.get("<unk>"),
-                tokenized_data[idx + 1] if idx + 1 < len(tokenized_data) else self.tokenizer.tokens.get("<eos>"),
-                tokenized_data[idx + 2] if idx + 2 < len(tokenized_data) else self.tokenizer.tokens.get("<eos>")
+                tokenized_data[idx - 2] if idx - 2 >= 0 else 2,
+                tokenized_data[idx - 1] if idx - 1 >= 0 else 2,
+                tokenized_data[idx + 1] if idx + 1 < len(tokenized_data) else 4,
+                tokenized_data[idx + 2] if idx + 2 < len(tokenized_data) else 4
             ]
             input_data.extend([target_token_id] * 4)
             output_data.extend(context_token_ids)
@@ -190,13 +190,17 @@ class embedding():
             end_idx = min(TMP_cycles * chunk_size, data_size)
             for i in range(start_idx, end_idx):
                 # Input One-Hot
-                token = int(input_data[i])
+                if input_data[i] == None:
+                    input_data[i] = 2
+                token = input_data[i]
                 one_hot = [0] * self.tokenizer.vocab_size
                 one_hot[token-1] = 1
                 input_oh_data.append(one_hot)
 
-                # Output One-Hot
-                token = int(output_data[i])
+                # Output One-Hot 2 = UNK 
+                if output_data[i] == None:
+                    output_data[i] = 2
+                token = output_data[i]
                 one_hot = [0] * self.tokenizer.vocab_size
                 one_hot[token-1] = 1
                 output_oh_data.append(one_hot)
@@ -214,12 +218,12 @@ class embedding():
             for epoch in range(self.num_epochs):
                 total_loss = 0.0
 
-                for i in range(num_batches):
-                    start = i * batch_size
-                    end = start + batch_size
+                for i in range(self.num_batches):
+                    start = i * self.num_batches
+                    end = start + self.num_batches
 
-                    batch_x = input_oh_data[start:end]
-                    batch_y = output_oh_data[start:end]
+                    batch_x = input_tensor[start:end]
+                    batch_y = output_tensor[start:end]
 
                     # Reset gradients
                     self.optimizer.zero_grad()
@@ -236,7 +240,7 @@ class embedding():
 
                     total_loss += loss.item()
 
-                avg_loss = total_loss / max(1, num_batches)
+                avg_loss = total_loss / max(1, self.num_batches)
                 self.logger.log(
                     f"Epoch [{epoch+1}/{self.num_epochs}] - Loss: {avg_loss:.4f}",
                     v=True, Wh=True, mention=False

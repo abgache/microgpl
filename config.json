@@ -2,6 +2,7 @@
     "webhook_url": "",
     "model_path": "model/model.pth",
     "data_path": "data/tiny_sheakespeare.txt",
+    "json_data_path": "data/dataset.json",
     "dataset_loading_size": 1000000,
     "tokenizer":{
         "vocab_size": 10000,
