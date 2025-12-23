@@ -166,74 +166,84 @@ class embedding():
             self.logger.log(f"Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}", v=False, Wh=True, mention=True)
             raise ValueError(f"{tlm()} Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}")
         del tokenized_data
-
         self.logger.log("Transforming the data to one-hot vectors...", v=True, Wh=True, mention=False)
-        # Create One-Hot Encoded vectors for each token
-        input_oh_data = []
-        for token_ids in input_data: # After calculation, i will need 11,2TB of RAM
-            one_hot = [0] * self.tokenizer.vocab_size
-            one_hot[token_ids-1] = 1
-            input_oh_data.append(one_hot)
-        del input_data
-        self.logger.log(f"Input data One-hot encoding completed. Total training samples: {len(input_oh_data)}", v=True, Wh=True, mention=False)
-
-        output_oh_data = []
-        for token_ids in output_data:
-            one_hot = [0] * self.tokenizer.vocab_size
-            one_hot[token_ids] = 1
-            output_oh_data.append(one_hot)
-        del output_data
-        self.logger.log(f"Output data One-hot encoding completed. Total training samples: {len(output_oh_data)}", v=True, Wh=True, mention=False)
-
-        # torch.tensor
-        input_tensor = torch.tensor(input_oh_data, dtype=torch.float32).to(self.device)
-        del input_oh_data
-        output_tensor = torch.tensor(output_oh_data, dtype=torch.float32).to(self.device)
-        del output_oh_data
-        del one_hot
-
-        # Train the model
+        
         self.dnn_config = self.dnn_config
         self.num_epochs = self.dnn_config.get("num_epochs", 10)
         self.num_batches = self.dnn_config.get("batch_size", 32)
         self.learning_rate = self.dnn_config.get("learning_rate", 0.001)
         self.criterion = torch.nn.MSELoss() # Mean Squared Error Loss for regression
-        self.optimizer = torch.optim.Adam(self.full_model.parameters(), lr=self.learning_rate) 
+        self.optimizer = torch.optim.Adam(self.full_model.parameters(), lr=self.learning_rate)
 
-        self.full_model.to(self.device)
+        # Generating 50,000 samples at a time to avoid memory issues then trainning on then deleting them and repeating until all data is processed
+        data_size = len(input_data) # A single One Hot vector is of size vocab_size (10,000) soo =~ 20ko bcs there is the input and the output
+        chunk_size = 25000 # 25,000 samples = 500mo of data in RAM at once (25,000 * 20ko)
+        num_chunks = (data_size + chunk_size - 1) // chunk_size
+        TMP_cycles = 0
+        while TMP_cycles < num_chunks:
+            # Create One-Hot Encoded vectors for each token
+            input_oh_data = []
+            output_oh_data = []
+            TMP_cycles += 1
 
-        self.full_model.train()
+            start_idx = (TMP_cycles - 1) * chunk_size
+            end_idx = min(TMP_cycles * chunk_size, data_size)
+            for i in range(start_idx, end_idx):
+                # Input One-Hot
+                token = int(input_data[i])
+                one_hot = [0] * self.tokenizer.vocab_size
+                one_hot[token-1] = 1
+                input_oh_data.append(one_hot)
 
-        for epoch in range(self.num_epochs):
-            total_loss = 0.0
+                # Output One-Hot
+                token = int(output_data[i])
+                one_hot = [0] * self.tokenizer.vocab_size
+                one_hot[token-1] = 1
+                output_oh_data.append(one_hot)
 
-            for i in range(num_batches):
-                start = i * batch_size
-                end = start + batch_size
+            # torch.tensor
+            input_tensor = torch.tensor(input_oh_data, dtype=torch.float32).to(self.device)
+            output_tensor = torch.tensor(output_oh_data, dtype=torch.float32).to(self.device)
+            del one_hot
 
-                batch_x = input_oh_data[start:end]
-                batch_y = output_oh_data[start:end]
+            # Train the model
+            self.full_model.to(self.device)
 
-                # Reset gradients
-                self.optimizer.zero_grad()
+            self.full_model.train()
 
-                # Forward
-                outputs = self.full_model(batch_x)
+            for epoch in range(self.num_epochs):
+                total_loss = 0.0
 
-                # Loss
-                loss = self.criterion(outputs, batch_y)
+                for i in range(num_batches):
+                    start = i * batch_size
+                    end = start + batch_size
 
-                # Backprop
-                loss.backward()
-                self.optimizer.step()
+                    batch_x = input_oh_data[start:end]
+                    batch_y = output_oh_data[start:end]
 
-                total_loss += loss.item()
+                    # Reset gradients
+                    self.optimizer.zero_grad()
 
-            avg_loss = total_loss / max(1, num_batches)
-            self.logger.log(
-                f"Epoch [{epoch+1}/{self.num_epochs}] - Loss: {avg_loss:.4f}",
-                v=True, Wh=True, mention=False
-            )
+                    # Forward
+                    outputs = self.full_model(batch_x)
+
+                    # Loss
+                    loss = self.criterion(outputs, batch_y)
+
+                    # Backprop
+                    loss.backward()
+                    self.optimizer.step()
+
+                    total_loss += loss.item()
+
+                avg_loss = total_loss / max(1, num_batches)
+                self.logger.log(
+                    f"Epoch [{epoch+1}/{self.num_epochs}] - Loss: {avg_loss:.4f}",
+                    v=True, Wh=True, mention=False
+                )
+            del input_tensor, output_tensor
+            torch.cuda.empty_cache()
+
 
         self.logger.log("Training completed successfully.", v=True, Wh=True, mention=False)
 
