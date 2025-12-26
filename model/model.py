@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import json
+import os
 from collections import Counter
 from scripts.time_log import time_log_module as tlm
 from scripts.byte_pair_encoder import data2tokens
@@ -138,34 +139,59 @@ class embedding():
             raise ValueError(f"{tlm()} Tokenizer vocabulary not found. Cannot create embedding table.")
         # Placeholder for training the embedding model
         # format dataset into input-output pairs for training
-        if isinstance(dataset, str):
-            tokenized_data = self.tokenizer.tokenize(dataset)
+        if os.path.exists(json_data_path) and os.path.getsize(json_data_path) > 0:
+            self.logger.log(f"Training data file {json_data_path} already exists. Skipping data preparation step and loading data.", v=True, Wh=True, mention=False)
+            try:
+                with open(json_data_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    input_data = [data["input_data"][str(i)] for i in range(len(data["input_data"]))]
+                    output_data = [data["output_data"][str(i)] for i in range(len(data["output_data"]))]
+                self.logger.log(f"Training data loaded from {json_data_path}.", v=True, Wh=True, mention=False)
+            except Exception as e:
+                self.logger.log(f"Error loading training data from {json_data_path}: {e}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Error loading training data from {json_data_path}: {e}")
         else:
-            tokenized_data = [self.tokenizer.tokenize(data) for data in dataset]
-        del dataset
+            if isinstance(dataset, str):
+                tokenized_data = self.tokenizer.tokenize(dataset)
+            else:
+                tokenized_data = [self.tokenizer.tokenize(data) for data in dataset]
+            del dataset
 
-        # Create input/output data
-        # E.g. : "I love programming in Python using PyTorch" → [I, love, programming, in, Python, using, PyTorch]
-        # For the input "Python", 4examples : "programming", "in", "using", "PyTorch" => The two tokens before and after the target token (For 1st token, just add a <UNK> token and for the last token a <EOS> token)
-        input_data = []  # One-hot encoded vectors of target tokens
-        output_data = [] # One-hot encoded vectors of context tokens
+            # Create input/output data
+            # E.g. : "I love programming in Python using PyTorch" → [I, love, programming, in, Python, using, PyTorch]
+            # For the input "Python", 4examples : "programming", "in", "using", "PyTorch" => The two tokens before and after the target token (For 1st token, just add a <UNK> token and for the last token a <EOS> token)
+            input_data = []  # One-hot encoded vectors of target tokens
+            output_data = [] # One-hot encoded vectors of context tokens
 
-        self.logger.log("Preparing training data for embedding model...", v=True, Wh=True, mention=False)
-        for idx, target_token_id in enumerate(tokenized_data):
-            # Context tokens
-            context_token_ids = [
-                tokenized_data[idx - 2] if idx - 2 >= 0 else 2,
-                tokenized_data[idx - 1] if idx - 1 >= 0 else 2,
-                tokenized_data[idx + 1] if idx + 1 < len(tokenized_data) else 4,
-                tokenized_data[idx + 2] if idx + 2 < len(tokenized_data) else 4
-            ]
-            input_data.extend([target_token_id] * 4)
-            output_data.extend(context_token_ids)
+            self.logger.log("Preparing training data for embedding model...", v=True, Wh=True, mention=False)
+            for idx, target_token_id in enumerate(tokenized_data):
+                # Context tokens
+                context_token_ids = [
+                    tokenized_data[idx - 2] if idx - 2 >= 0 else 2,
+                    tokenized_data[idx - 1] if idx - 1 >= 0 else 2,
+                    tokenized_data[idx + 1] if idx + 1 < len(tokenized_data) else 4,
+                    tokenized_data[idx + 2] if idx + 2 < len(tokenized_data) else 4
+                ]
+                input_data.extend([target_token_id] * 4)
+                output_data.extend(context_token_ids)
 
-        if not len(input_data) == len(output_data):
-            self.logger.log(f"Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}", v=False, Wh=True, mention=True)
-            raise ValueError(f"{tlm()} Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}")
-        del tokenized_data
+            if not len(input_data) == len(output_data):
+                self.logger.log(f"Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Input and output data lengths do not match. Cannot train embedding model. Input size : {len(input_data)}, Output size : {len(output_data)}")
+            del tokenized_data
+            try:
+                with open(json_data_path, "w", encoding="utf-8") as f:
+                    in_data = {}
+                    out_data = {}
+                    for i in range(len(input_data)):
+                        in_data[i] = input_data[i]
+                        out_data[i] = output_data[i]
+                    data2save = {"input_data": in_data, "output_data": out_data}
+                    json.dump(data2save, f, ensure_ascii=False, indent=4)
+                self.logger.log(f"Trainning data saved to {json_data_path}.", v=True, Wh=True, mention=False)
+            except:
+                self.logger.log(f"Error saving trainning data to {json_data_path}: {Exception}", v=False, Wh=True, mention=True)
+                raise ValueError(f"Error saving trainning data to {json_data_path}: {Exception}")
         self.logger.log("Transforming the data to one-hot vectors...", v=True, Wh=True, mention=False)
         
         self.dnn_config = self.dnn_config
@@ -252,11 +278,11 @@ class embedding():
         self.logger.log("Training completed successfully.", v=True, Wh=True, mention=False)
 
         # Create embedding table
-        for index in self.tokenizer.vocab_size:
-            token = int(index)
+        for index in range(self.tokenizer.vocab_size):
+            token = int(index)+1
             token_oh = []
             one_hot = [0] * self.tokenizer.vocab_size
-            one_hot[token] = 1
+            one_hot[token-1] = 1
             token_oh.append(one_hot)
             embed = self.full_model(torch.tensor(token_oh, dtype=torch.float32).to(self.device), upto_layer=1)
             self.embedding_table += [(token, embed)]
