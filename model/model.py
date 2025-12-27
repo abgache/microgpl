@@ -198,84 +198,93 @@ class embedding():
         self.num_epochs = self.dnn_config.get("num_epochs", 10)
         self.num_batches = self.dnn_config.get("batch_size", 32)
         self.learning_rate = self.dnn_config.get("learning_rate", 0.001)
-        self.criterion = torch.nn.MSELoss() # Mean Squared Error Loss for regression
+        self.criterion = torch.nn.KLDivLoss(reduction='batchmean')
         self.optimizer = torch.optim.Adam(self.full_model.parameters(), lr=self.learning_rate)
 
-        # Generating 50,000 samples at a time to avoid memory issues then trainning on then deleting them and repeating until all data is processed
-        data_size = len(input_data) # A single One Hot vector is of size vocab_size (10,000) soo =~ 20ko bcs there is the input and the output
-        chunk_size = 25000 # 25,000 samples = 500mo of data in RAM at once (25,000 * 20ko)
-        num_chunks = (data_size + chunk_size - 1) // chunk_size
-        TMP_cycles = 0
-        while TMP_cycles < num_chunks:
-            # Create One-Hot Encoded vectors for each token
-            input_oh_data = []
-            output_oh_data = []
-            TMP_cycles += 1
-
-            start_idx = (TMP_cycles - 1) * chunk_size
-            end_idx = min(TMP_cycles * chunk_size, data_size)
-            for i in range(start_idx, end_idx):
-                # Input One-Hot
-                if input_data[i] == None:
-                    input_data[i] = 2
-                token = input_data[i]
-                one_hot = [0] * self.tokenizer.vocab_size
-                one_hot[token-1] = 1
-                input_oh_data.append(one_hot)
-
-                # Output One-Hot 2 = UNK 
-                if output_data[i] == None:
-                    output_data[i] = 2
-                token = output_data[i]
-                one_hot = [0] * self.tokenizer.vocab_size
-                one_hot[token-1] = 1
-                output_oh_data.append(one_hot)
-
-            # torch.tensor
-            input_tensor = torch.tensor(input_oh_data, dtype=torch.float32).to(self.device)
-            output_tensor = torch.tensor(output_oh_data, dtype=torch.float32).to(self.device)
-            del one_hot
-
-            # Train the model
-            self.full_model.to(self.device)
-
-            self.full_model.train()
-
-            for epoch in range(self.num_epochs):
-                total_loss = 0.0
-
-                for i in range(self.num_batches):
-                    start = i * self.num_batches
-                    end = start + self.num_batches
-
-                    batch_x = input_tensor[start:end]
-                    batch_y = output_tensor[start:end]
-
-                    # Reset gradients
-                    self.optimizer.zero_grad()
-
-                    # Forward
-                    outputs = self.full_model(batch_x)
-
-                    # Loss
-                    loss = self.criterion(outputs, batch_y)
-
-                    # Backprop
-                    loss.backward()
-                    self.optimizer.step()
-
-                    total_loss += loss.item()
-
-                avg_loss = total_loss / max(1, self.num_batches)
-                self.logger.log(
-                    f"Epoch [{epoch+1}/{self.num_epochs}] - Loss: {avg_loss:.4f}",
-                    v=True, Wh=True, mention=False
-                )
-            del input_tensor, output_tensor
-            torch.cuda.empty_cache()
-
-
-        self.logger.log("Training completed successfully.", v=True, Wh=True, mention=False)
+        if os.path.exists(self.main_model_path) and os.path.getsize(self.main_model_path) > 0:
+            self.logger.log(f"Pretrained embedding model found at {self.main_model_path}. Loading model...", v=True, Wh=True, mention=False)
+            self.full_model.load_state_dict(torch.load(self.main_model_path, map_location=self.device))
+            self.logger.log("Pretrained embedding model loaded successfully.", v=True, Wh=True, mention=False)
+        else:
+            self.logger.log("No pretrained embedding model found. Starting training from scratch.", v=True, Wh=True, mention=False)  
+            # Generating 50,000 samples at a time to avoid memory issues then trainning on then deleting them and repeating until all data is processed
+            data_size = len(input_data) # A single One Hot vector is of size vocab_size (10,000) soo =~ 20ko bcs there is the input and the output
+            chunk_size = 25000 # 25,000 samples = 500mo of data in RAM at once (25,000 * 20ko)
+            num_chunks = (data_size + chunk_size - 1) // chunk_size
+            TMP_cycles = 0
+            self.logger.log(f"Starting trainning, number of chunks: {num_chunks}, data size: {data_size}", v=True, Wh=True, mention=False)
+            while TMP_cycles < num_chunks:
+                # Create One-Hot Encoded vectors for each token
+                input_oh_data = []
+                output_oh_data = []
+                TMP_cycles += 1
+    
+                start_idx = (TMP_cycles - 1) * chunk_size
+                end_idx = min(TMP_cycles * chunk_size, data_size)
+                for i in range(start_idx, end_idx):
+                    # Input One-Hot
+                    if input_data[i] == None:
+                        input_data[i] = 2
+                    token = input_data[i]
+                    one_hot = [0] * self.tokenizer.vocab_size
+                    one_hot[token-1] = 1
+                    input_oh_data.append(one_hot)
+    
+                    # Output One-Hot 2 = UNK 
+                    if output_data[i] == None:
+                        output_data[i] = 2
+                    token = output_data[i]
+                    one_hot = [0] * self.tokenizer.vocab_size
+                    one_hot[token-1] = 1
+                    output_oh_data.append(one_hot)
+    
+                # torch.tensor
+                input_tensor = torch.tensor(input_oh_data, dtype=torch.float32).to(self.device)
+                output_tensor = torch.tensor(output_oh_data, dtype=torch.float32).to(self.device)
+                del one_hot
+    
+                # Train the model
+                self.full_model.to(self.device)
+    
+                self.full_model.train()
+    
+                for epoch in range(self.num_epochs):
+                    total_loss = 0.0
+    
+                    for i in range(self.num_batches):
+                        start = i * self.num_batches
+                        end = start + self.num_batches
+    
+                        batch_x = input_tensor[start:end]
+                        batch_y = output_tensor[start:end]
+    
+                        # Reset gradients
+                        self.optimizer.zero_grad()
+    
+                        # Forward
+                        outputs = torch.log(self.full_model(batch_x) + 1e-9)
+    
+                        # Loss
+                        loss = self.criterion(outputs, batch_y)
+    
+                        # Backprop
+                        loss.backward()
+                        self.optimizer.step()
+    
+                        total_loss += loss.item()
+    
+                    avg_loss = total_loss / max(1, self.num_batches)
+                    self.logger.log(
+                        f"Epoch [{epoch+1}/{self.num_epochs}] - Loss: {avg_loss:.4f}",
+                        v=True, Wh=True, mention=False
+                    )
+                del input_tensor, output_tensor
+                torch.cuda.empty_cache()
+    
+    
+            self.logger.log("Training completed successfully.", v=True, Wh=True, mention=False)
+    
+            torch.save(self.full_model.state_dict(), self.main_model_path)
 
         # Create embedding table
         for index in range(self.tokenizer.vocab_size):
@@ -284,11 +293,16 @@ class embedding():
             one_hot = [0] * self.tokenizer.vocab_size
             one_hot[token-1] = 1
             token_oh.append(one_hot)
-            embed = self.full_model(torch.tensor(token_oh, dtype=torch.float32).to(self.device), upto_layer=1)
-            self.embedding_table += [(token, embed)]
+            x = torch.tensor(token_oh, dtype=torch.float32).to(self.device)
+            upto_layer = 1
+            for i, layer in enumerate(self.full_model):
+                x = layer(x)
+                if i == upto_layer:
+                    break
+            self.embedding_table += [(token, x)]
 
 
-class model():
+class attention_head():
     def __init__(self, logger, embedding, context_window=64):
         self.logger = logger
         self.embedding = embedding

@@ -5,9 +5,7 @@ import json
 from scripts.time_log import time_log_module as tlm
 from scripts.logger import logger
 from data.data import data
-from model.model import tokenizer
-from model.model import embedding
-from model.model import model
+from model.model import tokenizer, embedding, attention_head, FNN
 
 # Configuration
 with open("config.json", "r") as f:
