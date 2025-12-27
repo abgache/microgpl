@@ -24,13 +24,11 @@ del config
 
 # Args
 train = "--train" in argv or "-t" in argv
+download = "--download" in argv or "-d" in argv
 predict = "--predict" in argv
 chat = "--chat" in argv
 tokenizer_test = "--tokenizer-test" in argv
 embedding_test = "--embedding-test" in argv
-new_tokenizer = "--new-tokenizer" in argv
-new_embedding = "--new-embedding" in argv
-verbose = "--verbose" in argv or "-v" in argv # detailed logs + print more model and generation infos like attention matrixs
 force_cpu = "--cpu" in argv
 force_cuda = "--cuda" in argv
 
@@ -105,6 +103,11 @@ if __name__ == "__main__":
                 raise MemoryError(f"{tlm()} Error during embedding model training: Out of memory. Please try to make your dataset smaller or use a smaller model.")
 
         del dataset # Free memory
+
+    if download:
+        logger.log("Downloading pre-trained model...", v=True, Wh=True, mention=False)
+        auto_choose = input("Do you want to choose the model size or let the program choose the best one for your hardware? (y = choose by yourself / n = let the program choose): ") == "n"
+        print("No model is available for download yet. Please train your own model or wait for the main release.")
 
     if tokenizer_test:
         if tk is None:
