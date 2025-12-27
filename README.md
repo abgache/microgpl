@@ -8,7 +8,7 @@ To change any setting, please go check ``config.json``.
 **LAM** stands for Linear Attention Mechanism, it's a [Transformer](https://arxiv.org/pdf/1706.03762)-like neural network architecture made for NGPL, it's way easier to understand, cheaper in resources but less efficient than the real Transformer arch even though they are both really similars.
 ### How does it works?
 ![shema](LAM%20-%20NanoGPL.png)  
-This shema show how it works from the input word list, to the tokens probabilities. Each bloc is explained down here.
+> This shema show how it works from the input word list, to the tokens probabilities. Each bloc is explained down here.
 <details>
 <summary>1- Tokenizer</summary>
 It's the first bloc, it's very useful for going from a string (e.g. "My name is abgache and i love machine learning!") to numbers (e.g. [45, 58, 563]).
@@ -50,8 +50,6 @@ It's input layer is just 256 neurons (because in this case we have 256 dimension
 ---
 
 ## How to use it?
-> [!NOTE]
-> For the moment, the model is __not__ ready, soo theses command will, for most of them, probably not work. Please wait for the main release to use a stable version.  
 Before testing it, you will need to have a model, either you downloaded it or trained it by ourself.
 ### 1st stage : How to get MGPL files on my computer?
 > [!NOTE]
@@ -67,6 +65,8 @@ Before testing it, you will need to have a model, either you downloaded it or tr
 ```
 
 ### 2nd stage : How to get a working model?
+> [!NOTE]
+> For the moment, the model is __not__ ready, soo theses command will, for most of them, probably not work. Please wait for the main release to use a stable version.  
 **Option 1: download a model from huggingface/google drive**
 To download the pre-trained models, please run this command:
 ```batch
