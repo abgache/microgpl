@@ -1,13 +1,13 @@
 ![ngpl_ico](ngpl.png)
 # NanoGPL Beta 0.1
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)  [![PyTorch](https://img.shields.io/badge/PyTorch-2.0.1-red)](https://pytorch.org/)  
-Small test generative pre-trained LAM (Linear Attention Mechanism).
-To change any setting, please go check ``config.json``.
+Small test generative pre-trained LAM (Linear Attention Mechanism).  
+To change any setting, please go check ``config.json``.  
 
 ## What is LAM?
 **LAM** stands for Linear Attention Mechanism, it's a [Transformer](https://arxiv.org/pdf/1706.03762)-like neural network architecture made for NGPL, it's way easier to understand, cheaper in resources but less efficient than the real Transformer arch even though they are both really similars.
 ### How does it works?
-![shema](LAM - NanoGPL.png)
+![shema](LAM%20-%20NanoGPL.png)  
 This shema show how it works from the input word list, to the tokens probabilities. Each bloc is explained down here.
 <details>
 <summary>1- Tokenizer</summary>
@@ -51,11 +51,11 @@ It's input layer is just 256 neurons (because in this case we have 256 dimension
 
 ## How to use it?
 > [!NOTE]
-> For the moment, the model is __not__ ready, soo theses command will, for most of them, probably not work. Please wait for the main release to use a stable version.
+> For the moment, the model is __not__ ready, soo theses command will, for most of them, probably not work. Please wait for the main release to use a stable version.  
 Before testing it, you will need to have a model, either you downloaded it or trained it by ourself.
 ### 1st stage : How to get MGPL files on my computer?
 > [!NOTE]
-> To use MicroGPL, you will need: [Python 3.10](https://www.python.org/downloads/release/python-31010/) + [Git](https://git-scm.com/install/)
+> To use MicroGPL, you will need: [Python 3.10](https://www.python.org/downloads/release/python-31010/) + [Git](https://git-scm.com/install/)  
 **First, clone the repo:**  
 ```batch
    git clone https://github.com/abgache/microgpl.git
