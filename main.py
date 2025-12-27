@@ -102,6 +102,9 @@ if __name__ == "__main__":
 
         del dataset # Free memory
 
+        logger.log("Building SPE class...", v=True, Wh=True, mention=False)
+        spe = SPE(device)
+
     if download:
         logger.log("Downloading pre-trained model...", v=True, Wh=True, mention=False)
         auto_choose = input("Do you want to choose the model size or let the program choose the best one for your hardware? (y = choose by yourself / n = let the program choose): ") == "n"

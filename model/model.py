@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import json
 import os
+from math import ceil, sin, cos
 from collections import Counter
 from scripts.time_log import time_log_module as tlm
 from scripts.byte_pair_encoder import data2tokens
@@ -304,31 +305,27 @@ class embedding():
             self.embedding_table += [(token, x.detach().tolist())]
 
 class SPE():
-    def __init__(self, logger, device, context_window=64, path="model/spe_table.json"):
-        self.logger = logger
+    def __init__(self, device):
         self.device = device
-        self.context_window = context_window
-        self.path = path
-        self.spe_table = {}
-    
-    def create_spe_table(self):
-        for pos in range(self.context_window):
-            pass
-    
-    def save_spe_table(self):
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-    
-    def load_spe_table(self):
-        pass
-    
-    def check_spe_table(self):
-        return os.path.exists(self.path) and os.path.getsize(self.path) > 0
     
     def vector2spe_vector(self, input_vector, position):
-        if position > self.context_window:
-            self.logger.log(f"Position {position} exceeds context window size {self.context_window}. Cannot encode position.", v=False, Wh=True, mention=True)
-            raise ValueError(f"{tlm()} Position {position} exceeds context window size {self.context_window}. Cannot encode position.")
+        input_vector = input_vector.tolist() if torch.is_tensor(input_vector) else input_vector
+        spe_vector = []
+        for i in range(len(input_vector)):
+            if i % 2 == 0:
+                spe_vector.append(torch.sin(position / (10000 ** ((2 * i) / len(input_vector)))))
+            else:
+                spe_vector.append(torch.cos(position / (10000 ** ((2 * (i + 1)) / len(input_vector)))))
+        spe_vector = torch.tensor(spe_vector, dtype=torch.float32).to(self.device)
+        return spe_vector
+    
+    def vector_list2spe_vector_list(self, input_vector_list):
+        spe_vector_list = []
+        for pos in range(len(input_vector_list)):
+            spe_vector = self.vector2spe_vector(input_vector_list[pos], pos)
+            spe_vector_list.append(spe_vector)
+        del input_vector_list
+        return spe_vector_list
 
 class attention_head():
     def __init__(self, logger, embedding, context_window=64):

@@ -106,7 +106,7 @@ To train your own model, please run this command:
 ### TODO : 
 - [X] Working tokenizer
 - [X] Working embedding
-- [ ] Working SPE
+- [X] Working SPE
 - [ ] Working single attention head
 - [ ] Working multiple attention heads
 - [ ] Working and __trained__ final feed forward neural network
