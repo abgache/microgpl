@@ -56,8 +56,8 @@ Before testing it, you will need to have a model, either you downloaded it or tr
 > To use NanoGPL, you will need: [Python 3.10](https://www.python.org/downloads/release/python-31010/) + [Git](https://git-scm.com/install/)  
 **First, clone the repo:**  
 ```batch
-   git clone https://github.com/abgache/nanogpl.git
-   cd nanogpl
+   git clone https://github.com/abgache/NanoGPL.git
+   cd NanoGPL
 ```
 **Then, download the requirements:**  
 ```batch
