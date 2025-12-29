@@ -2,10 +2,11 @@ import torch
 import torch.nn as nn
 import json
 import os
-from math import ceil, sin, cos
+from math import ceil, sin, cos, sqrt
 from collections import Counter
 from scripts.time_log import time_log_module as tlm
 from scripts.byte_pair_encoder import data2tokens
+from scripts.graph import plot_attention_matrix
 
 class tokenizer(): # Fully functional
     def __init__(self, logger, tokenizer_config):
@@ -328,35 +329,133 @@ class SPE():
         return spe_vector_list
 
 class attention_head():
-    def __init__(self, logger, embedding, context_window=64):
+    def __init__(self, logger, embedding, SPE, attention_config):
         self.logger = logger
         self.embedding = embedding
         self.tokenizer = self.embedding.tokenizer
-        self.context_window = context_window
+        self.attention_config = attention_config
+        self.context_window = self.attention_config.get("context_window", 64)
         self.attention_matrix = None # Single attention head
+        self.SPE = SPE
+        self.device = self.embedding.device
+        self.masking_value = self.attention_config.get("masking_value", -1e9) # Change for -1e4 if ur using float16
+
+        # Weight matrices
+        # DO NOT to transform them into torch tensors
+        self.wq = None
+        self.wk = None
+        self.wv = None
+
+        # Weight matrices paths
+        self.wq_path = self.attention_config.get("wq_path", "model/wq.json")
+        self.wk_path = self.attention_config.get("wk_path", "model/wk.json")
+        self.wv_path = self.attention_config.get("wv_path", "model/wv.json")
+
+    def get_wq(self):
+        if os.path.exists(self.wq_path) and os.path.getsize(self.wq_path) > 0:
+            try:
+                with open(self.wq_path, "r", encoding="utf-8") as f:
+                    self.wq = torch.tensor(json.load(f), dtype=torch.float32).to(self.device)
+                self.logger.log(f"Wq matrix loaded from {self.wq_path}.", v=True, Wh=True, mention=False)
+            except Exception as e:
+                self.logger.log(f"Error loading Wq matrix from {self.wq_path}: {e}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Error loading Wq matrix from {self.wq_path}: {e}")
+        else:
+            self.logger.log(f"Wq matrix file {self.wq_path} not found. Trainning new Wq matrix...", v=False, Wh=True, mention=True)
+            self.wq = torch.randn((self.embedding.vector_dim, self.embedding.vector_dim), dtype=torch.float32).to(self.device)
+            # save it
+            try:
+                with open(self.wq_path, "w", encoding="utf-8") as f:
+                    json.dump(self.wq.tolist(), f, ensure_ascii=False, indent=4)
+                self.logger.log(f"Wq matrix saved to {self.wq_path}.", v=True, Wh=True, mention=False)
+            except Exception as e:
+                self.logger.log(f"Error saving Wq matrix to {self.wq_path}: {e}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Error saving Wq matrix to {self.wq_path}: {e}")
     
-    def positional_encoding(self, position, d_model=None): # Avoir le vecteur de position qu'on vas après additionner au vecteur du mot
-        if d_model is None:
-            d_model = self.embedding.vector_dim
-        pe = torch.zeros(position, d_model)
-        for pos in range(position):
-            for i in range(0, d_model, 2):
-                pe[pos, i] = torch.sin(pos / (10000 ** ((2 * i)/d_model)))
-                if i + 1 < d_model:
-                    pe[pos, i + 1] = torch.cos(pos / (10000 ** ((2 * (i + 1))/d_model)))
-        return pe
+    def get_wk(self):
+        if os.path.exists(self.wk_path) and os.path.getsize(self.wk_path) > 0:
+            try:
+                with open(self.wk_path, "r", encoding="utf-8") as f:
+                    self.wk = torch.tensor(json.load(f), dtype=torch.float32).to(self.device)
+                self.logger.log(f"Wk matrix loaded from {self.wk_path}.", v=True, Wh=True, mention=False)
+            except Exception as e:
+                self.logger.log(f"Error loading Wk matrix from {self.wk_path}: {e}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Error loading Wk matrix from {self.wk_path}: {e}")
+        else:
+            self.logger.log(f"Wk matrix file {self.wk_path} not found. Trainning new Wk matrix...", v=False, Wh=True, mention=True)
+            self.wk = torch.randn((self.embedding.vector_dim, self.embedding.vector_dim), dtype=torch.float32).to(self.device)
+            # save it
+            try:
+                with open(self.wk_path, "w", encoding="utf-8") as f:
+                    json.dump(self.wk.tolist(), f, ensure_ascii=False, indent=4)
+                self.logger.log(f"Wk matrix saved to {self.wk_path}.", v=True, Wh=True, mention=False)
+            except Exception as e:
+                self.logger.log(f"Error saving Wk matrix to {self.wk_path}: {e}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Error saving Wk matrix to {self.wk_path}: {e}")
+
+    def get_wv(self):
+        if os.path.exists(self.wv_path) and os.path.getsize(self.wv_path) > 0:
+            try:
+                with open(self.wv_path, "r", encoding="utf-8") as f:
+                    self.wv = torch.tensor(json.load(f), dtype=torch.float32).to(self.device)
+                self.logger.log(f"Wv matrix loaded from {self.wv_path}.", v=True, Wh=True, mention=False)
+            except Exception as e:
+                self.logger.log(f"Error loading Wv matrix from {self.wv_path}: {e}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Error loading Wv matrix from {self.wv_path}: {e}")
+        else:
+            self.logger.log(f"Wv matrix file {self.wv_path} not found. Trainning new Wv matrix...", v=False, Wh=True, mention=True)
+            self.wv = torch.randn((self.embedding.vector_dim, self.embedding.vector_dim), dtype=torch.float32).to(self.device)
+
+            # save it
+            try:
+                with open(self.wv_path, "w", encoding="utf-8") as f:
+                    json.dump(self.wv.tolist(), f, ensure_ascii=False, indent=4)
+                self.logger.log(f"Wv matrix saved to {self.wv_path}.", v=True, Wh=True, mention=False)
+            except Exception as e:
+                self.logger.log(f"Error saving Wv matrix to {self.wv_path}: {e}", v=False, Wh=True, mention=True)
+                raise ValueError(f"{tlm()} Error saving Wv matrix to {self.wv_path}: {e}")
+
+    def embed2query(self, input_embedding):
+        if isinstance(input_embedding, list):
+            input_embedding = torch.tensor(input_embedding, dtype=torch.float32).to(self.device)
+        return self.wq @ input_embedding
     
-    def encode_vector_position(self, input_vectors: list): # Encode la position des vecteurs d'une liste de vecteurs
-        pe_vectors = []
-        for pos in range(len(input_vectors)):
-            pe = self.positional_encoding(pos)
-            pe_vectors.append(input_vectors[pos] + pe)
-        return pe_vectors # vrm pas un code de tigre
+    def embed2key(self, input_embedding):
+        if isinstance(input_embedding, list):
+            input_embedding = torch.tensor(input_embedding, dtype=torch.float32).to(self.device)
+        return self.wk @ input_embedding
 
-    def create_attention_matrix(self):
-        pass
+    def embed2value(self, input_embedding):
+        if isinstance(input_embedding, list):
+            input_embedding = torch.tensor(input_embedding, dtype=torch.float32).to(self.device)
+        return self.wv @ input_embedding
 
+    def create_attention_matrix(self, input_embeddings, spe_encoded=False):
+        if not spe_encoded:
+            input_embeddings = self.SPE.vector_list2spe_vector_list(input_embeddings)
 
+        # Calculate queries & keys
+        queries = torch.tensor([self.embed2query(emb) for emb in input_embeddings], dtype=torch.float32).to(self.device)
+        keys = torch.tensor([self.embed2key(emb) for emb in input_embeddings], dtype=torch.float32).to(self.device)
+
+        scores = (queries @ keys.T) / math.sqrt(queries.size(-1))
+        scores = scores.masked_fill(torch.triu(torch.ones_like(scores), 1).bool(), self.masking_value)
+        self.attention_matrix = torch.softmax(scores, dim=-1)
+        plot_attention_matrix(self.attention_matrix, "data/attention.png")
+
+        # Apply softmax to get attention weights
+        #self.attention_matrix = torch.nn.functional.softmax(torch.tensor(matrix, dtype=torch.float32).to(self.device), dim=-1)
+    
+    def get_new_vector(self, position):
+        if self.attention_matrix is None:
+            self.logger.log("Attention matrix not created yet. Cannot get new vector.", v=False, Wh=True, mention=True)
+            raise ValueError(f"{tlm()} Attention matrix not created yet. Cannot get new vector.")
+        attention_weights = self.attention_matrix[position]
+        value_vectors = torch.tensor([self.embed2value(emb) for emb in self.embedding.embedding_table], dtype=torch.float32).to(self.device)
+        new_vector = attention_weights @ value_vectors
+        return new_vector
+
+        
 class FNN():
     def __init__(self, logger, embedding, ffn_config):
         self.logger = logger

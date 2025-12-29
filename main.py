@@ -18,6 +18,7 @@ version = config.get("version", "None")
 dataset_loading_size = config.get("dataset_loading_size", 10000)
 tokenizer_config = config.get("tokenizer", {})
 embedding_config = config.get("embedding", {})
+attention_config = config.get("attention", {})
 del config
 
 # Args

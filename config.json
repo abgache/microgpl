@@ -25,13 +25,21 @@
             "learning_rate": 0.005
         }
     },
-    "dnn":{
-        "model_path": "model/model.pth",
+    "attention":{
         "context_window": 64,
-        "input_size": 196608,
-        "num_epochs": 100,
-        "batch_size": 32,
-        "learning_rate": 0.001
+        "num_heads": 2,
+        "head_dim": {
+            "query": 128,
+            "key": 128,
+            "value": 128
+        },
+        "matrix_path":{
+            "W_Q": "model/W_Q.json",
+            "W_K": "model/W_K.json",
+            "W_V": "model/W_V.json",
+            "W_O": "model/W_O.json"
+        },
+        "masking_value": -1e9
     },
     "ffn":{
         "model_path": "model/ffn.pth",
@@ -39,5 +47,5 @@
         "batch_size": 32,
         "learning_rate": 0.001
     },
-    "version": "0.0.1"
+    "version": "0.1.0"
 }
